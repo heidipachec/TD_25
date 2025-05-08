@@ -1,0 +1,388 @@
+---
+title: "2. Exploratory Data Analysis. Ejercicios"
+date: "Febrero 2025"
+author: "Heidi Idali Pacheco Almaraz"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 1
+    theme: cerulean
+---
+
+
+<style>
+body {
+text-align: justify}
+</style>
+
+<style type="text/css">
+body{/*Normal*/
+     font-size: 20px;
+}
+</style>
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(discrtr) # A companion package for the book Introduction to Discrete Choice Analysis with `R`
+library(mlogit) # Multinomial Logit Models
+library(readr) # Read Rectangular Text Data
+
+library(gplots) # Various R Programming Tools for Plotting Data
+library(ggmosaic) # Mosaic Plots in the 'ggplot2' Framework
+library(treemapify)
+library(ggridges)
+library(ggalluvial)
+library(plotly)
+```
+
+
+Call data set Car from package mlogit. Once you have loaded the data set, do the following:
+
+* How many variables are there in this data set and of which type (i.e., categorical/quantitative)?
+
+* Choose four relevant categorical variables from this data set and describe them using univariate, bivariate, and multivariate techniques. Discuss your results.
+
+* What ideas about individuals’ choices regarding car do you develop from this EDA exercise?
+
+
+Se carga el conjunto de datos, se muestran las variables y su tipo:
+
+```{r}
+data(Car)
+glimpse(Car)
+```
+
+
+En este caso es necesario añadir columnas acerca de la elección, las gráficas se realizarán con la data frame `new_car`:
+
+
+```{r}
+new_car <- Car
+choice_char <- gsub("choice","", new_car$choice)
+new_car <- new_car |> mutate(choice_char = choice_char)
+
+type <- vector("character", nrow(new_car))
+fuel <- vector("character", nrow(new_car))
+price <- vector("numeric", nrow(new_car))
+range <- vector("numeric", nrow(new_car))
+acc <- vector("numeric", nrow(new_car))
+speed <- vector("numeric", nrow(new_car))
+pollution <- vector("numeric", nrow(new_car))
+size <- vector("numeric", nrow(new_car))
+space <- vector("numeric", nrow(new_car))
+cost <- vector("numeric", nrow(new_car))
+station <- vector("numeric", nrow(new_car))
+for (i in 1:nrow(new_car)) {
+  type[i] <- as.character(new_car[i, paste0("type", new_car$choice_char[i], collapse = "")])
+  fuel[i] <- as.character(new_car[i, paste0("fuel", new_car$choice_char[i], collapse = "")])
+  price[i] <- new_car[i, paste0("price", new_car$choice_char[i], collapse = "")]
+  range[i] <- new_car[i, paste0("range", new_car$choice_char[i], collapse = "")]
+  acc[i] <- new_car[i, paste0("acc", new_car$choice_char[i], collapse = "")]
+  speed[i] <- new_car[i, paste0("speed", new_car$choice_char[i], collapse = "")]
+  pollution[i] <- new_car[i, paste0("pollution", new_car$choice_char[i], collapse = "")]
+  size[i] <- new_car[i, paste0("size", new_car$choice_char[i], collapse = "")]
+  space[i] <- new_car[i, paste0("space", new_car$choice_char[i], collapse = "")]
+  cost[i] <- new_car[i, paste0("cost", new_car$choice_char[i], collapse = "")]
+  station[i] <- new_car[i, paste0("station", new_car$choice_char[i], collapse = "")]
+}
+
+new_car <- new_car |> mutate(choice_num= factor(choice_char), type=type, fuel=fuel, price=price, range=range,
+                             acc=acc, speed=speed, pollution=pollution, size=size, space=space, cost=cost,
+                             station=station)
+
+new_car$type <- factor(new_car$type, levels = levels(new_car$type1))
+new_car$fuel <- factor(new_car$fuel, levels = levels(new_car$fuel1))
+```
+
+
+
+
+
+Total de varibles en el conjunto de datos
+
+```{r}
+cat("Total de variables:", ncol(Car), "\n")
+```
+
+
+Variables categóricas
+
+```{r}
+cat("Total de variables categóricas:", sum(sapply(Car, is.factor)), "\n")
+```
+
+```{r}
+if (sum(sapply(Car, is.factor)) > 0) {
+  cat("\nVariables categóricas:\n")
+  print(summary(Car[sapply(Car, is.factor)]))
+}
+```
+
+
+Variables cuantitativas
+
+```{r}
+cat("Total de variables cuantitativas:", sum(sapply(Car, is.numeric)), "\n")
+```
+
+```{r}
+if (sum(sapply(Car, is.numeric)) > 0) {
+  cat("\nVariables cuantitativas:\n")
+  print(summary(Car[sapply(Car, is.numeric)]))
+}
+```
+
+En el conjunto de datos tenemos un total de **70 variables**, de las cuales, **57 son de tipo cuantitativo** y **13 son de tipo categórico**.
+
+
+
+
+
+Técnica univariante, bivariante y multivariante: variables categóricas.
+
+```{r}
+summary(new_car)
+```
+
+
+**Univariante**
+
+Choice
+
+```{r}
+new_car |>
+  group_by(choice) |>
+  summarize(n=n()) |>
+  ggplot()+
+  geom_treemap(aes(fill=choice, area=n))+
+  labs(title= "Frecuencia de Elección", fill="Choice")
+```
+
+```{r}
+choice <- table(new_car$choice)
+barplot(choice, main="Distribución de Elección", col="purple", xlab="Choice", ylab="Frecuencia")
+```
+
+Las personas tienen una preferencia, en primer lugar, por la **opción 5**; en segundo, por la **opción 3**, y en tercero, por la **opción 1**. 
+
+
+Type 
+
+```{r}
+new_car |>
+  group_by(type) |>
+  summarize(n=n()) |>
+  ggplot()+
+  geom_treemap(aes(fill=type, area=n))+
+  labs(title= "Frecuencia de Tipo de Vehículo", fill="Tipo")
+```
+
+```{r}
+type <- table(new_car$type)
+barplot(type, main="Distribución de Tipo de Vehículo", col="skyblue", xlab="Type", ylab="Frecuencia")
+```
+
+El tipo de vehículo **más preferido** es, en primer lugar, **Regcar**; el segundo, **Van**; el tercero, **Truck**, mientras que el **menos preferido** es el **Sportcar**.
+
+
+Fuel 
+
+```{r}
+new_car |>
+  group_by(fuel) |>
+  summarize(n=n()) |>
+  ggplot()+
+  geom_treemap(aes(fill=fuel, area=n))+
+  labs(title= "Frecuencia de Combustible", fill="Fuel")
+```
+
+```{r}
+fuel <- table(new_car$fuel)
+barplot(fuel, main="Distribución de Combustible", col = "green", xlab = "Fuel", ylab = "Frecuencia")
+```
+
+El tipo de combustible **más común** en las preferencias de las personas es **eléctrico**; después, la gasolina, mientras que el **menos elegido** es el **metanol**. 
+
+
+Price
+
+```{r}
+#Numérica a Categórica
+new_car <- new_car |> 
+  mutate(price_ready = cut(price, 
+                           breaks = c(0,3,6,Inf),
+                           labels = c("Bajo", "Medio", "Alto"),
+                           right = TRUE))
+table(new_car$price_ready)
+```
+
+```{r}
+new_car |>
+  group_by(price_ready) |>
+  summarize(n=n()) |>
+  ggplot()+
+  geom_treemap(aes(fill=price_ready, area=n))+
+  labs(title= "Frecuencia de Rango por Precios", fill="Price")
+```
+
+```{r}
+price_r <- table(new_car$price_r)
+barplot(price_r, main="Distribución de Vehículos por Rango de Precios", col = "orange", xlab = "Price", ylab = "Frecuencia")
+```
+
+La mayoría de los vehículos se ubican en los rangos de precios **medio** y **bajo**.
+
+
+**Bivariante**
+
+Choice ~ Type
+
+```{r}
+table(new_car$type, new_car$choice)
+```
+
+```{r}
+new_car |>
+  group_by(choice, type) |>
+  summarize(n=n(), .groups = "drop") |>
+  ggplot(aes(x=choice, y=n, fill=type))+
+  geom_bar(stat = "identity", position ="dodge")+
+  labs(title="Distribución de Elección por Tipo de Vehiculo", x="Choice", y="Frecuencia Absoluta", fill="Tipo de Vehículo")
+```
+
+```{r}
+new_car |>
+  ggplot(aes(x = choice, fill = type)) +
+  geom_bar(position = "fill") +
+  labs(title = "Proporción de Tipo de Vehículo por Elección", 
+       y = "Proporción Relativa", 
+       x = "Choice", 
+       fill = "Tipo de Vehículo")
+```
+
+El Regcar es el favorito general, especialmente en las elecciones 1, 3, y 5. Las demás opciones muestran preferencias similares, aunque en todas destaca que el Sportuv y el Sportcar son los menos elegidos. 
+
+
+Type ~ Fuel 
+
+```{r}
+table(new_car$type, new_car$fuel)
+```
+
+```{r}
+new_car |>
+  group_by(type, fuel) |>
+  summarize(n=n(), .groups = "drop") |>
+  ggplot(aes(x=type, y=n, fill=fuel))+
+  geom_bar(stat = "identity", position ="dodge")+
+  labs(title="Distribución de Tipo de Vehículo por Combustible", x="Tipo de Vehículo", y="Frecuencia Absoluta", fill="Tipo de Combustible")
+```
+
+```{r}
+new_car |>
+  ggplot(aes(x = type, fill = fuel)) +
+  geom_bar(position = "fill") +
+  labs(title = "Proporción de Tipo de Vehículo por Combustible", 
+       y = "Proporción Relativa", 
+       x = "Tipo de Vehículo", 
+       fill = "Tipo de Combustible")
+```
+
+La gasolina es el combustible más utilizado en términos absolutos, pero no domina en proporción relativa en ninguno de los tipos de vehículo. Por otro lado, el combustible electrico y el cng tienen una presencia relativamente marcada en vehículos van y truck, mientras que el metanol, en ambos casos, sigue siendo el menos frecuente. Esto sugiere una tendencia a sustituir el uso de gasolina por el electrico o cng.
+ 
+ 
+Fuel ~ Price
+
+```{r}
+table(new_car$fuel, new_car$price_ready)
+```
+
+```{r}
+new_car |>
+  group_by(fuel, price_ready) |>
+  summarize(n=n(), .groups = "drop") |>
+  ggplot(aes(x=fuel, y=n, fill=price_ready))+
+  geom_bar(stat = "identity", position ="dodge")+
+  labs(title="Distribución de Combustible por Rango de Precios", x="Tipo de Combustible", y="Frecuencia Absoluta", fill="Precio")
+```
+
+```{r}
+new_car |>
+  ggplot(aes(x = fuel, fill = price_ready)) +
+  geom_bar(position = "fill") +
+  labs(title = "Proporción de Combustible por Rango de Precios", 
+       y = "Proporción Relativa", 
+       x = "Tipo de Combustible", 
+       fill = "Rango de Precios")
+```
+
+La opción de precio predominante es la gama media, con una distribución uniforme entre los distintos tipos de combustible. 
+
+
+Type ~ Price
+
+```{r}
+table(new_car$type, new_car$price_ready)
+```
+
+```{r}
+new_car |>
+  group_by(type, price_ready) |>
+  summarize(n=n(), .groups = "drop") |>
+  ggplot(aes(x=type, y=n, fill=price_ready))+
+  geom_bar(stat = "identity", position ="dodge")+
+  labs(title="Distribución de Tipo de Vehículo por Rango de Precios", x="Tipo de Vehículo", y="Frecuencia Absoluta", fill="Precio")
+```
+
+```{r}
+new_car |>
+  ggplot(aes(x = type, fill = price_ready)) +
+  geom_bar(position = "fill") +
+  labs(title = "Proporción de Tipo de Vehiculo por Rango de Precios", 
+       y = "Proporción Relativa", 
+       x = "Tipo de Vehículo", 
+       fill = "Rango de Precios")
+```
+
+Lo vehículos Regcar en el rango de precios medios son los más comunes, mientras que los vehículos de precios altos tienen poca preferencia, independientemente del tipo de vehículo.
+
+
+**Multivariante**
+
+Type ~ Fuel ~ Choice 
+
+```{r}
+ggplot(new_car, aes(x = type, fill = choice)) +
+  geom_bar(position = "fill") +
+  facet_wrap(~fuel)+
+  labs(
+    title = "Tipo de Vehículo, Elección y Combustible", x = "Tipo de Vehículo", y = "Proporción", fill = "Elección")+
+  theme_bw()
+```
+
+```{r}
+type_fuel_choice_alluvia <- new_car |> 
+  select(type, fuel, choice) |> 
+  group_by(type, fuel, choice) |> 
+  summarize(frequency = n(), .groups = "drop")
+```
+
+```{r}
+type_fuel_choice_alluvia |> 
+  ggplot(aes(y = frequency, axis1 = type, axis2 = fuel, axis3 = choice)) +
+  geom_alluvium(aes(fill = choice), width = 1/3, color = "black") +
+  geom_stratum(width = 1/3, fill = "black", color = "grey") +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), color = "white", size = 3) +
+  scale_x_discrete(limits = c("Type", "Fuel", "Choice"), expand = c(.05, .05)) +
+  scale_fill_brewer(type = "qual", palette = "Spectral") + 
+  labs(
+    title="Relación entre Tipo de Vehículo, Combustible y Elección", x="Variables", y="Frecuencia", fill="Elección"
+  )+
+  theme_minimal()
+```
+
+Los Regcar son los vehículos más frecuentes y dominantes con uso de gasolina, como se observa en las elecciones 1 y 5, mientras que en la opción 3, los van y truck utilizan principalmente cng y combustible eléctrico.

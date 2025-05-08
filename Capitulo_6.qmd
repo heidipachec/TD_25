@@ -1,0 +1,148 @@
+---
+title: "6. Behavioral Insights from Choice Models"
+author: "Heidi Idali Pacheco Almaraz"
+format: html
+editor: visual
+---
+
+```{r}
+#| code-fold: true
+#| message: false
+#| warning: false
+
+
+library(knitr)
+library(tidyverse)
+library(discrtr) # A companion package for the book Introduction to Discrete Choice Analysis with `R`
+library(dplyr) # A Grammar of Data Manipulation
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(mlogit) # Multinomial Logit Models
+library(readr) # Read Rectangular Text Data
+library(gplots) # Various R Programming Tools for Plotting Data
+library(ggmosaic) # Mosaic Plots in the 'ggplot2' Framework
+library(treemapify)
+library(ggridges)
+library(ggalluvial)
+library(kableExtra) # Construct Complex Table with kable and Pipe Syntax
+library(plotly) # Create interactive web graphics
+library(tidyr) # Tidy messy data
+#library(webshot2) # Take screenshots of web pages
+
+library(evd)
+```
+
+1.  What is the difference between a marginal effect and an elasticity?
+
+Un efecto marginal es una medida resumida de la cantidad de cambio en una variable dependiente $y$ cuando una variable independiente $x_k$ cambia en una unidad.
+
+$M_{x_k}^y = \frac{\partial y}{\partial x_k}$
+
+En cambio, una elasticidad resulta útil para resumir la forma en que una variable dependiente $y$ cambia en respuesta a cambios en una variable independiente $x_k$.
+
+$E_{x_k}^y = \frac{\partial y}{\partial x_k}\frac{x_k}{y}$
+
+2.  Why is it inappropriate to calculate the elasticity of a dummy variable?
+
+Porque no tiene cambios marginales definidos, ya que toma valores de 0 o 1.
+
+3.  Use Model 3 in this chapter and calculate the marginal effects and the elasticities for operating cost at the mean of all variables.
+
+```{r}
+#| code-fold: true
+
+data("Heating")
+glimpse(Heating)
+
+H <- Heating |> mlogit.data(shape = "wide", choice="depvar", varying=c(3:12))
+
+model3 <- mlogit(depvar ~ ic + oc, data = Heating, shape = "wide", choice = "depvar", reflevel = "ec", varying = 3:12)
+
+means <- Heating[1,]
+
+mean_cost <- Heating |> 
+  select(starts_with("ic"), starts_with("oc")) |>
+  summarise(across(.cols = everything(), mean))
+
+means[3:12] <- mean_cost
+```
+
+Efectos Marginales
+
+```{r}
+#| code-fold: true
+
+efectos_marginales <- effects(model3, covariate = "oc", type = "ra", data = mlogit.data(means, shape = "wide", choice = "depvar", varying = 3:12))
+
+print("Efectos Marginales:")
+print(efectos_marginales)
+```
+
+Elasticidades
+
+```{r}
+#| code-fold: true
+elasticidad <- effects(model3, covariate = "oc", type = "rr", data = mlogit.data(means, shape = "wide", choice = "depvar", varying = 3:12))
+
+print("Elasticidades:")
+print(elasticidad)
+```
+
+4.  Use Model 3 in this chapter to calculate the rebate needed to reach a 10% penetration rate of heat pumps.
+
+```{r}
+penetration_diff <- function(rebate_rate) {
+  Heating_mod <- Heating |>
+    mutate(ic.hp = ic.hp * (1 - rebate_rate))
+  
+  heating_mlogit <- mlogit.data(
+    Heating_mod, shape = "wide", choice = "depvar", varying = 3:12
+  )
+  
+  pred_prob <- predict(model3, newdata = heating_mlogit)
+  mean_hp <- mean(pred_prob[, "hp"])
+  mean_hp - 0.10 
+}
+
+rebate <- uniroot(penetration_diff, interval = c(0,1), tol = 0.001)
+cat("El reembolso necesario para alcanzar una penetración del 10% es del:", rebate$root*100, "%\n")
+```
+
+```{r}
+penetration_diff <- function(rebate_rate) {
+  Heating_mod <- Heating |>
+    mutate(ic.hp = ic.hp * (1 - rebate_rate))
+  
+  prob_pred <- predict(model3, 
+                       newdata = mlogit.data(Heating_mod, shape = "wide", choice = "depvar", varying = 3:12), 
+                       type = "probabilities")
+  
+  mean_hp <- mean(prob_pred[, "hp"])
+  return(mean_hp - 0.10)
+}
+
+rebate <- uniroot(penetration_diff, c(0,0.5))
+rebate$root
+```
+
+Estimate a new model that extends Model 3 by introducing the age of the household head. Use the electric room system ("er") as the reference level. 
+
+```{r}
+Model4 <- mlogit(depvar ~ ic + oc | agehed, Heating, shape = "wide", choice = "depvar", reflevel = "er", varying = c(3:12))
+
+summary(Model4)
+```
+
+
+5. Use the likelihood ratio test to compare your new model to Model 3. Discuss the results. 
+
+```{r}
+lrtest(model3, Model4)
+```
+
+Con el test podemos observar que la diferencia entre el modelo 3 y el modelo 4 no es muy marcada estadísticamente. Por lo tanto, la edad del jefe del hogar no tiene un impacto significativo en el modelo 3.
+
+
+6. Is the ratio of the coefficient of installation (or operation) cost to the coefficient of age of household head meaningful. Explain.
+
+Dado que la edad del jefe del hogar no influye estadísticamente en la elección de bombas de calor, la relación entre dicha variable y el costo de instalación u operación tampoco es estadísticamente significativa. 
+
