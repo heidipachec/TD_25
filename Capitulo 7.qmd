@@ -1,0 +1,154 @@
+---
+title: "Capitulo 7. Non-proportional Substitution Patterns I: Generalized Extreme Value Models"
+author: "Heidi Idali Pacheco Almaraz"
+format: html
+editor: visual
+---
+
+```{=html}
+<style>
+body {
+text-align: justify}
+</style>
+```
+
+
+```{r}
+#| code-fold: true
+#| message: false
+#| warning: false
+
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(discrtr) # A companion package for the book Introduction to Discrete Choice Analysis with `R`
+library(dplyr) # A Grammar of Data Manipulation
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(mlogit) # Multinomial Logit Models
+library(readr) # Read Rectangular Text Data
+library(gplots) # Various R Programming Tools for Plotting Data
+library(ggmosaic) # Mosaic Plots in the 'ggplot2' Framework
+library(treemapify)
+library(ggridges)
+library(ggalluvial)
+library(dfidx)
+library(htmlwidgets) # HTML Widgets for R
+library(kableExtra) # Construct Complex Table with kable and Pipe Syntax
+library(plotly) # Create interactive web graphics
+library(tidyr) # Tidy messy data
+
+library(evd)
+```
+
+The blue bus-red bus paradox is a classical illustration of the limitations of the multinomial logit model. This paradox is stated next.
+
+**The blue bus-red bus paradox**
+
+There are two initial modes, car and blue buses, with systematic utility functions as follows:
+
+$$V_{blue} = V_{car}$$
+
+According to the multinomial logit model, the probability of choosing either mode is 0.5, since.
+
+$$P_{car} = \frac{e_{car}^V}{e_{car}^V + e_{blue}^V} = \frac{e_{car}^V}{e_{car}^V + e_{car}^V}= \frac{1}{2}$$
+
+and
+
+$$P_{blue} = 1 - P_{car} = \frac{1}{2}$$
+
+A new alternative is introduced. In fact, the new alternative is just some old blue buses painted red. Since consumers do not care about the color of buses, the utility of this new alternative is
+
+$$V_{yellow} = V_{bus} = V_{car}$$
+
+The new choice probabilities are now
+
+$$P_{car} = \frac{e_{car}^V}{e_{car}^V+e_{blue}^V+e_{yellow}^V} = \frac{1}{3}$$
+
+$$P_{blue}=\frac{e_{car}^V}{e_{car}^V+e_{blue}^V+e_{yellow}^V}=\frac{1}{3}$$
+
+
+$$P_{yellow} = 1-P_{car}-P_{blue}=\frac{1}{3}$$
+
+Proportional substitution patterns imply that the new mode (red bus) draws equally from alternatives, i.e., car and blue buses. Clearly, this does not make sense. An entrepreneur could paint buses in many different colors and reduce the probability of choosing car to zero as a consequence.
+
+```{r}
+#| code-fold: true
+
+data("Heating", package = "mlogit")
+H <- mlogit.data(Heating, shape = "wide", choice = "depvar", varying = c(3:12))
+```
+
+
+**Ejercicio 2.**  Use model $nl2$ in this chapter and calculate the direct-point elasticity at the mean values of the variables, for an increase in the installation costs of Gas Central systems.
+
+```{r}
+#| code-fold: true
+
+nl2 <- mlogit(depvar ~ ic + oc, H, nests = list(room = c( "er", "gr"), central = c("ec", "gc", "hp")),
+              un.nest.el = TRUE, steptol = 1e-12)
+
+summary(nl2)
+```
+
+```{r}
+#| code-fold: true
+
+gc_data <- subset(H, alt == "gc")
+mean_ic_gc <- mean(gc_data$ic, na.rm = TRUE)
+
+probabilidades <- fitted(nl2, type = "probabilities")
+mean_probabilidades_gc <- mean(probabilidades[H$alt == "gc"], na.rm = TRUE)
+
+beta_ic <- coef(nl2)["ic"]
+
+u <- beta_ic * mean_ic_gc
+v <- 1 - mean_probabilidades_gc 
+
+elasticidad_ic_gc <- u*v
+cat("La elasticidad directa del costo de instalación para Gas Central es:", elasticidad_ic_gc, "\n")
+```
+
+
+**Ejercicio 3.**  Use model $nl2$ in this chapter and calculate the cross-point elasticity at the mean values of the variables, for a 1% increase in the operations costs of Gas Central systems.
+
+
+```{r}
+#| code-fold: true
+
+gc_data <- H[H$alt == "gc", ]
+mean_oc_gc <- mean(gc_data$oc, na.rm = TRUE)
+
+probabilidades <- fitted(nl2, type ="probabilities")
+mean_probabilidades <- tapply(probabilidades, H$alt, mean)
+
+beta_oc <- coef(nl2)["oc"]
+
+u <- mean_probabilidades["ec"]
+v <- mean_probabilidades["gc"]
+
+elasticidad_cruzada_ec_gc <- (-beta_oc)*(mean_oc_gc)*(v/u)
+cat("La elasticidad cruzada del costo operativo de Gas Central sobre la probabilidad de elegir Electric Central o otra alternativa es:", elasticidad_cruzada_ec_gc, "\n")
+```
+
+
+**Ejercicio 4.**  Re-estimate the nested logit model in this chapter, but change the nests to types of energy as follows:
+
+-   Gas: gas central, gas room
+
+-   Electricity: electric central, electric room, heat pump.
+
+Use a single coefficient for the inclusivee variables(i.e., set un.nest.el = TRUE). Are the results reasonable? Discuss.
+
+```{r}
+#| code-fold: true
+
+nle <- mlogit(depvar ~ ic + oc, H, nests = list(gas = c( "gc", "gr"), electricity = c("ec", "er", "hp")),
+              un.nest.el = TRUE, steptol = 1e-12)
+
+summary(nle)
+```
+
+El r cuadrático del modelo es poco significativo, por lo tanto, la capacidad predictiva del modelo es pequeña o poco significativa bajo esta estructura de nidos. Sin embargo, la mayoria de las elecciones de los consumidores se van directamente en un 63.66% al Gas Central y el 14.33% al Gas Room, opciones más dominantes frente a la opciones eléctricas.
+
+Los consumidores prefieren opciones con un menor costo incial y operativo. Y los coeficientes negativos que observamos en el modelo respaldan la teoria de la utilidad esperada donde los agentes maximizan su utilidad neta. 
+
